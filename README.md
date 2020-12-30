@@ -77,11 +77,11 @@ KS_plotter(data, fit_function, args=(), zoom=True)
 Calculates the Kolmogorov-Smirnov test and the associated p-value for a data set against a scipy stats function that has been fitted. An alternative to finding a goodness of fit that does not consider the number of bins.
 
 
-FUNCTION_NAME: find_C(fx_expr, xmin, xmax, all_sol = False)
+find_C(fx_expr, xmin, xmax, all_sol = False)
 ---------------------------------------------------------------------------------------------------
 Finds the normalising constant C for a function that we want to create monte carlo simulated data from. C can be either in the function, or one of the limits where the function is defined, for example x in [0,C].
 
 
-FUNCTION_NAME: find_invF(fx_expr_no_C, C_val=None, xmin=-oo, all_sol = False )
+find_invF(fx_expr_no_C, C_val=None, xmin=-oo, all_sol = False )
 ---------------------------------------------------------------------------------------------------
 Finds the inverse function to a function f(x) we want to create our simulated monte carlo data from. This is for the transformation method.
