@@ -1,5 +1,7 @@
 # AppStat
 General function to use in the course Applied Statistics. 
+Import of the file ExternalFunctions is necessary.
+
 
 Contains the functions below:
 
