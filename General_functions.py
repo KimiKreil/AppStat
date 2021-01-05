@@ -564,7 +564,7 @@ def KS_plotter(data, fit_function, args=(), zoom=True):
         fig.add_artist(sq4)
         
     # Perform ks test
-    ks_stat, pval = stats.kstest(cut3_new_data, fit_function, args=args )
+    ks_stat, pval = stats.kstest(data, fit_function, args=args )
 
     # Adding fit results to plot:
     d = {'KS stat':     ks_stat, 'Prob':     pval,}
