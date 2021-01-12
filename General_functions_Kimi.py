@@ -690,6 +690,172 @@ def find_invF(fx_expr_no_C, C_val=None, xmin=-oo, all_sol = False ):
 
 
 
+def get_corr(x_data, y_data):
+    """
+    Calculates the linear correlation of two variables, given a data set with values for each variable
+    
+    INPUT:
+    x_data = 1d arraylike with all x values of a data set where x is a variable
+    y_data = 1d arraylike with all corresponding y values of a data set
+    
+    OUTPUT:
+    rho_xy = the linear correlation
+    """
+    
+    # Covariance matrix
+    cov_mat = np.cov(x_data, y_data)
+    
+    # extract covariance and variance for each variable
+    cov, var_x, var_y = cov_mat[0,1], cov_mat[0,0], cov_mat[1,1]
+    
+    # Find correlation cov / sigma_x * sigma_y. Remember sigma = sqrt(Var)
+    rho_xy = cov / (np.sqrt(var_x)*np.sqrt(var_y))
+    
+    return rho_xy
+
+
+
+def error_rates(species_A, species_B, cut, N_bins = 50, plot=True, alp_coord=(0.1, 0.52), bet_coord=(0.1, 0.52), labelA = 'Species A', labelB='Species B'):
+    """
+    INPUT:
+    species_A : 1d arraylike containing data for one variable of species A. 
+                Species A should be below the cut.
+    species_B : 1d arraylike containing data for same variable of species B. 
+                Species B should be above or equal to the cut.
+    cut = float, defining the cut
+    N_bins = number of bins to plot for each species
+    plot = option to plot or not
+    alp_coord = coordinates to place the axtext alpha on the form (x,y) where 0 < x,y < 1
+    bet_coord = coordinates to place the axtext beta on the form (x,y) where 0 < x,y < 1
+    
+    OUTPUT:
+    alp = type I error rate
+    bet = type II error rate
+    """
+
+    # Separate data acoording to cut
+    A_sup_cut = species_A[species_A >= cut]
+    B_sub_cut = species_B[species_B < cut]
+    
+    # Calculate error rates
+    alp = len(B_sub_cut) / len(species_B)
+    bet = len(A_sup_cut) / len(species_A)
+
+    # Create figure
+    if plot:
+        fig, ax = plt.subplots(ncols=2, figsize=(12,6))
+        
+        # Define range
+        rang = ( np.min(np.concatenate((species_A, species_B))), np.max( np.concatenate((species_A, species_B))) )
+        
+        # Type I errors (alpha)---------------------------------------------------------------------------
+        countA, _, _ = ax[0].hist(species_A, bins=N_bins, range=rang, histtype='step', color='red', linewidth=2, label=labelA)
+        countB, _, _ = ax[0].hist(species_B, bins=N_bins, range=rang, histtype='step', color='blue', linewidth=2, label=labelB)
+
+        ax[0].vlines(cut, 0, np.max((countA, countB))+10, color='k', linestyle='dashed', label='Cut=9$\mu$m')
+
+        # Mark the area under
+        ax[0].hist(B_sub_cut, bins=N_bins, range=rang, histtype='stepfilled', color='blue', alpha=0.5,linewidth=2, label='Beta')
+
+        d1 = {'Alpha':     alp}  
+        text1 = nice_string_output(d1, extra_spacing=2, decimals=3)
+        add_text_to_ax(*alp_coord, text1, ax[0], fontsize=14, color='blue')
+
+        ax[0].set_title('Type I Error', fontsize=14)
+        ax[0].legend()
+        
+        # Type II errors (beta) ---------------------------------------------------------------------------
+        ax[1].hist(species_A, bins=N_bins, range=rang, histtype='step', color='red', linewidth=2, label=labelA)
+        ax[1].hist(species_B, bins=N_bins, range=rang, histtype='step', color='blue', linewidth=2, label=labelB)
+
+        ax[1].vlines(cut, 0, np.max((countA, countB))+10, color='k', linestyle='dashed', label=f'Cut={cut}')
+
+        # Mark the area under
+        ax[1].hist(A_sup_cut, bins=N_bins, range=rang, histtype='stepfilled', color='red', alpha=0.5, linewidth=2, label='Alpha')
+
+        d2 = {'Beta':     bet}  
+        text2 = nice_string_output(d2, extra_spacing=2, decimals=3)
+        add_text_to_ax(*bet_coord, text2, ax[1], fontsize=14, color='red')
+    
+        ax[1].set_title('Type II Error', fontsize=14)
+        ax[1].legend()
+
+        plt.show()
+        
+    return alp, bet
+
+
+def gauss_hist(data, label=None):
+    
+    """
+    INPUT:
+    data = 1d array of all data points
+    label = label to put on xaxis
+    
+    OUTPUT:
+    mean = (mean of data, error on mean from fit)
+    sigma = (std of data, error on std from fit)
+    pval = probability of chi2 fit
+    """
+    
+    # Create a figure
+    fig, ax = plt.subplots(figsize=(12,6))
+
+    # Extract values from histogram and outline data
+    counts, bin_edges, _ = ax.hist(data, bins=Sturges_bins(data), alpha=0.3, label='Histogram of data')
+    bin_centers = (bin_edges[1:] + bin_edges[:-1])/2
+    binwidth = bin_edges[1]-bin_edges[0]
+    
+    # Poisson errors on the count in each bin
+    s_counts = np.sqrt(counts)
+    
+    # Plot data with error
+    ax.errorbar(x, y, yerr=sy, fmt='.k',  ecolor='k', elinewidth=1, capsize=1, capthick=1, label='Counts with Poisson errors')
+    
+    # Perform Gaussian fit ------------------------------------------------------------------------
+    
+    # Define Gauss function
+    def func_gaussian(x, N, mu, sigma) :
+        return N * stats.norm.pdf(x, mu, sigma)
+
+    # Perform fit by minimizing chi2
+    chi2_gaussian = Chi2Regression(func_gaussian, x, y, sy)
+    minuit_gaussian = Minuit(chi2_gaussian, pedantic=False, N=len(data), mu=np.mean(data), sigma=np.std(data, ddof=1))  
+    minuit_gaussian.migrad(); 
+    
+    # Extract chi2 values
+    chi2_gauss = minuit_gaussian.fval
+    Ndof_gauss = len(x) - minuit_fit.narg
+    Prob_gauss = stats.chi2.sf(chi2_gauss, Ndof_gauss)
+    
+    # Plot Gaussian fit
+    xaxis = np.linspace(min(data), max(data), 100)
+    y_gauss = func_gaussian(xaxis, *minuit_gaussian.args)
+    ax.plot(xaxis, y_gauss, linewidth=2, color='r')
+
+    #Extract values from fit
+    mean = [minuit_gaussian.values['mu'], minuit_gaussian.errors['mu']]
+    sigma = [minuit_gaussian.values['sigma'], minuit_gaussian.errors['sigma']]
+    
+    d1 = {'N': [minuit_gaussian.values['N'], minuit_gaussian.errors['N']],
+          'mu': mean,
+          'sigma': sigma,
+          'Chi2': chi2_gauss,
+          'Prob': Prob_gauss}
+
+    text1 = nice_string_output(d1, extra_spacing=3, decimals=3)
+    add_text_to_ax(0.02, 0.9, text1, ax, fontsize=12, color='red')
+    ax.text(0.02, 0.97, 'Gaussian Fit', weight='heavy', fontsize=15, transform=ax.transAxes, 
+            verticalalignment='top', color='r')
+
+    ax.legend()
+    ax.set_xlabel(label, fontsize=14)
+    plt.show()
+    
+    return mean, sigma, Prob_gauss
+
+
+
 
 
 
