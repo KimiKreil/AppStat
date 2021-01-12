@@ -838,6 +838,11 @@ def gauss_hist(data, label=None):
     # Poisson errors on the count in each bin
     s_counts = np.sqrt(counts)
     
+    # We remove any bins, which don't have any counts in them:
+    x = bin_centers[counts>0]
+    y = counts[counts>0]
+    sy = s_counts[counts>0]
+
     # Plot data with error
     ax.errorbar(x, y, yerr=sy, fmt='.k',  ecolor='k', elinewidth=1, capsize=1, capthick=1, label='Counts with Poisson errors')
     
@@ -854,7 +859,7 @@ def gauss_hist(data, label=None):
     
     # Extract chi2 values
     chi2_gauss = minuit_gaussian.fval
-    Ndof_gauss = len(x) - minuit_fit.narg
+    Ndof_gauss = len(x) - minuit_gaussian.narg
     Prob_gauss = stats.chi2.sf(chi2_gauss, Ndof_gauss)
     
     # Plot Gaussian fit
@@ -882,6 +887,7 @@ def gauss_hist(data, label=None):
     plt.show()
     
     return mean, sigma, Prob_gauss
+    
 
 
 
