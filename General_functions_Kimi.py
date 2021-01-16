@@ -24,6 +24,8 @@ from ExternalFunctions import *
 from IPython.display import display
 from IPython.core.display import Latex
 
+from matplotlib.patches import ConnectionPatch
+
 def lprint(*args,**kwargs):
     """Pretty print arguments as LaTeX using IPython display system 
     
@@ -35,7 +37,7 @@ def lprint(*args,**kwargs):
         optional keywords to pass to `display` 
     """
     display(Latex('$$'+' '.join(args)+'$$'),**kwargs)
-    
+
 def weighted_avg(val, err, plot=False, title=None):
     """
     INPUT:
@@ -172,7 +174,7 @@ def binom_prob(r, n , p, plot=True):
     """
     INPUT: r = number of succeses, n = number of trials, p = probability of succes.
     
-    OUTPUT: Probability of r
+    OUTPUT: prob_r = Probability of r
     """
     
     # Calculate probability of r succeses, and print
@@ -206,8 +208,51 @@ def binom_prob(r, n , p, plot=True):
         
         ax.scatter(r, stats.binom.pmf(r,n,p), color = 'r', label=f'Probability of {r} successes', zorder=2)
         ax.legend(loc='upper left')
+
+    return prob_r
+
+
+def poisson_prob(r, lamb, plot=True):
+    """
+    INPUT: r = number of successes, lamb = poisson parameter (n*p).
+    
+    OUTPUT: prob_r = Probability of r
+    """
+    
+    # Calculate probability of r succeses, and print
+    prob_r = stats.poisson.pmf(r, lamb)
+    print(f'The probability of {r:.0f} succeses is {prob_r:.4f}')
+    
+    # Option to plot
+    if plot:
         
+        # Create figure
+        fig, ax = plt.subplots(figsize=(10, 6))
         
+        # Make an array of r's to evaluate the probability of (centered around the mean)
+        mean = lamb
+        variance = lamb
+        
+        # Plot
+        xaxis = np.linspace( mean - variance, mean + variance, 1000)
+        yaxis = stats.poisson.pmf(np.round(xaxis), lamb)
+        ax.plot(xaxis, yaxis, '-', label = 'Poisson pmf', zorder=1, color='k')
+        
+        # Nice text
+        d = {'Lambda/Mean': mean,
+             'Std': np.sqrt(variance),}
+        
+        text = nice_string_output(d, extra_spacing=2, decimals=3)
+        add_text_to_ax(0.02, 0.87, text, ax, fontsize=12)
+        ax.set(title='Poisson Probability', xlabel='Number of succeses r', ylabel='Probability')
+        
+        ax.scatter(r, stats.poisson.pmf(r, lamb), color = 'r', label=f'Probability of {r} successes', zorder=2)
+        ax.legend(loc='upper left')
+
+    return prob_r
+
+
+    
         
 def binom_trials(r, p, prob_r, test_range, plot=True):
     """
@@ -443,9 +488,9 @@ def sigma_cut(data, x):
     new_data = 1d array with accepted data
     rejected_data = 1d array with rejected data
     """
-    
-    # Find the standard deviation
-    sigma = np.std(data, ddof=1)
+
+    # Find the mean and  standard deviation
+    mean, sigma = np.mean(data), np.std(data, ddof=1)
 
     # Find interval we wish to keep
     low = mean - x*sigma
@@ -513,11 +558,15 @@ def Doanes_bins(data):
 
 def KS_plotter(data, fit_function, args=(), zoom=True):
     """
+    So far this function only works to compare empirical data to a scipy stats function,
+    and has not yet been expanded to include user fit functions.
+
     INPUT:
     data = empirical data to test against a fit
     fit_function = Scipy stats function that is fitted with in a string, fx 'norm'
     args = arguments to give fit function in default order
-    
+    zoom = option to zoom in on supremum
+
     OUTPUT:
     ks_stat = ks statistics value
     pval = p value of KS test
@@ -534,7 +583,7 @@ def KS_plotter(data, fit_function, args=(), zoom=True):
     
     # Plot fitted function's cdf
     cdf = getattr(stats.distributions, fit_function).cdf
-    cdf_axis = len(cut3_new_data) * cdf(xaxis, *args)
+    cdf_axis = len(data) * cdf(xaxis, *args)
     ax[0].plot(xaxis, cdf_axis, color='k', label = fit_function + '' + 'CDF')
     ax[0].legend(loc='upper left', prop={"size":14} )
     
@@ -555,7 +604,7 @@ def KS_plotter(data, fit_function, args=(), zoom=True):
         ax1.plot(xaxis, cdf_axis, color='k')
         
         # Find and supremum
-        index = np.argmax(resi)
+        index = np.argmax(abs(resi))
         
         # Adjust limits
         if resi[index] > 0: # Empirical data highest
@@ -606,6 +655,148 @@ def KS_plotter(data, fit_function, args=(), zoom=True):
     return ks_stat, pval
 
 
+def KS_2samp_plotter(data1, data2, zoom=True, label1 = 'Cumulative Data 1', label2 = 'Cumulative Data 2'):
+    
+    """
+    INPUT:
+    data1 = 1d arraylike, with data sample 1
+    data2 = 1d arraylike, with data sample 2
+    
+    OUTPUT:
+    ks_stat = ks statistics value from a two sample test comparing the two data sets
+    pval = p value of KS test
+    """
+    
+    # Get data stuff to be compatible (interpolate to same size) and make cdf array
+    data1 = np.sort(data1)
+    data2 = np.sort(data2)
+    data_all = np.sort( np.concatenate([data1, data2]) )
+    cdf1 = np.searchsorted(data1, data_all, side='right')
+    cdf2 = np.searchsorted(data2, data_all, side='right')
+
+    # Create figure
+    fig, ax = plt.subplots(nrows=2, figsize=(12,8), sharex=True, 
+                       gridspec_kw = {'height_ratios': [1.5, 0.4], 'hspace': 0})
+    
+    # Plot the two cdfs
+    ax[0].plot(data_all, cdf1, color='r', label=label1)
+    ax[0].plot(data_all, cdf2, color='b', label=label2)
+    ax[0].legend(loc='upper left', prop={"size":14} )
+    
+    # Calculate and plot residuals
+    resi = cdf1 - cdf2
+    ax[1].plot(np.sort(data_all), resi, color='k', linewidth=0.6, label='Residuals (Data1 - Data2)')
+    ax[1].hlines(0, data_all[0], data_all[-1], linestyle='dashed', color='k')
+    ax[1].legend(loc='lower left', prop={"size":12})
+    
+    # Plot zoom
+    if zoom:
+        
+        # Create extra axis
+        ax1 = fig.add_axes([0.65, 0.35, 0.2, 0.25]) # add_axes([x0, y0, width, height])
+        ax1.plot(data_all, cdf1, color='r')
+        ax1.plot(data_all, cdf2, color='b')
+        
+        # Find and supremum
+        index = np.argmax(abs(resi))
+    
+        # Adjust limits
+        if resi[index] > 0: # Data1 is highest at supremum
+            ymin, ymax = cdf2[index] - resi[index], cdf1[index] + resi[index]
+            
+        if resi[index] < 0: # Data2 is highest at supremum
+            ymin, ymax = cdf1[index] + resi[index], cdf2[index] - resi[index]
+        
+        xmin, xmax = data_all[index] - 0.05 * data_all[index], data_all[index] + 0.05 * data_all[index]
+        
+        ax1.set_xlim(xmin, xmax)
+        ax1.set_ylim(ymin, ymax)
+        
+        # Mark supremum
+        supremum = ConnectionPatch(xyA=(data_all[index], cdf1[index]), xyB=(data_all[index], cdf2[index]), coordsA=ax1.transData, 
+                           arrowstyle='<->', color='k')
+        fig.add_artist(supremum)
+
+        ax1.set_title('$D_n = sup_x |F_n(x)-F(x)| $', color='k', fontsize=14)
+        
+        # Add zoom lines
+        con1 = ConnectionPatch(xyA=(xmin, ymin), coordsA=ax[0].transData, xyB=(xmin, ymin), coordsB=ax1.transData, alpha=0.3)
+        con2 = ConnectionPatch(xyA=(xmax, ymax), coordsA=ax[0].transData, xyB=(xmax,ymax), coordsB=ax1.transData, alpha=0.3)
+
+        sq1 = ConnectionPatch(xyA=(xmin, ymin), xyB=(xmax, ymin), coordsA=ax[0].transData, alpha=0.3)
+        sq2 = ConnectionPatch(xyA=(xmin, ymax), xyB=(xmax, ymax), coordsA=ax[0].transData, alpha=0.3)
+        sq3 = ConnectionPatch(xyA=(xmin, ymin), xyB=(xmin, ymax), coordsA=ax[0].transData, alpha=0.3)
+        sq4 = ConnectionPatch(xyA=(xmax, ymin), xyB=(xmax, ymax), coordsA=ax[0].transData, alpha=0.3)
+
+        fig.add_artist(con1)
+        fig.add_artist(con2)
+        fig.add_artist(sq1)
+        fig.add_artist(sq2)
+        fig.add_artist(sq3)
+        fig.add_artist(sq4)
+        
+    # Perform ks test
+    ks_stat, pval = stats.kstest(data1, data2, alternative='two-sided' )
+
+    # Adding fit results to plot:
+    d = {'KS stat':     ks_stat, 'Prob':     pval,}
+    
+    text = nice_string_output(d, extra_spacing=2, decimals=3)
+    add_text_to_ax(0.02, 0.82, text, ax[0], fontsize=14)
+
+    plt.show()
+    
+    return ks_stat, pval
+
+
+def chi2_2samp(data1, data2, N_bins=50, label1='Data 1', label2='Data 2', xlabel=None, txtcoord=(0.02, 0.95)):
+    
+    """
+    INPUT:
+    data1 = 1d arraylike, with data sample 1
+    data2 = 1d arraylike, with data sample 2
+    
+    OUTPUT:
+    chi2 = chi2 value
+    prob = chi2 probability of the two samples matching
+    
+    """
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12,6))
+    
+    # Plot tranformed data in the same range
+    rang = ( min(*data1, *data2), max(*data1, *data2) )
+    
+    counts1, bin_edges1, _ = ax.hist(data1, bins=N_bins, range=rang, color='r', histtype='step', linewidth=2, label=label1)
+    counts2, bin_edges2, _ = ax.hist(data2, bins=N_bins, range=rang, color='b', histtype='step', linewidth=2, label=label2)
+
+    x1 = (bin_edges1[1:] + bin_edges1[:-1])/2
+    sy1 = np.sqrt(counts1)
+
+    x2 = (bin_edges2[1:] + bin_edges2[:-1])/2
+    sy2 = np.sqrt(counts2)
+
+    ax.errorbar(x1, counts1, yerr=sy1, fmt='.r',  ecolor='r', elinewidth=1, capsize=1, capthick=1, alpha=0.5)
+    ax.errorbar(x2, counts2, yerr=sy2, fmt='.b',  ecolor='b', elinewidth=1, capsize=1, capthick=1, alpha=0.5)
+
+    # Chi2
+    chi2 = np.sum( (counts1 - counts2)**2  / ( sy1**2 + sy2**2 ) )
+    ndof = len(counts1) #no degrees of freedom
+    prob = stats.chi2.sf(chi2, ndof)
+
+    # Adding fit results to plot:
+    d = {'Chi2':     chi2,
+         'ndof':     ndof,
+         'Prob':     prob,
+        }
+
+    text = nice_string_output(d, extra_spacing=2, decimals=3)
+    add_text_to_ax(*txtcoord, text, ax, fontsize=18)
+
+    ax.legend()
+    
+    return chi2, prob
 
 
 def find_C(fx_expr, xmin, xmax, all_sol = False):
@@ -718,6 +909,64 @@ def find_invF(fx_expr_no_C, C_val=None, xmin=-oo, all_sol = False ):
     return inverse_function
 
 
+def accept_reject(func, N_points, xbound, ybound):
+    
+    """
+    Notice that we look at the accept rejection as a binomial distribution 
+    (either you accept (success) or reject (failure), where the efficiency 
+    is the probability p.) The error on the efficiency comes from this approach,
+    and is further described in http://www.pp.rhul.ac.uk/~cowan/atlas/efferr.ps
+    
+    INPUT:
+    func = function the generated numbers should follow
+    N_points = number of points to be generated
+    xbound = (xmin, xmax) where xmin, xmax defines the x limits for the function
+    ybound = (ymin, ymax) where ymin and ymax are the lower and upper bound for y
+    
+    OUTPUT:
+    x_accept = 1d arraylike with all the accepted x-values
+    [eff, eff_err] = tuple with efficiency and efficiency error
+    [integral, integral_err] = tuple with integral value and itegral error
+    
+    """
+    
+    # Set counter of tries to zero
+    N_try = 0 
+    
+    # Empty array to store the accepted values
+    x_accept = np.zeros(N_points)
+    
+    # Generate N_points random numbers according to the distribution func
+    for i in range(N_points):
+        
+        # Loop until we find an accepted value
+        while True: 
+            
+            # Counts attempts
+            N_try += 1 
+            
+            # Create x,y pair
+            x_test, y_test = np.random.uniform(*xbound), np.random.uniform(*ybound)
+            
+            # Test that the point is within the distribution, if yes break loop
+            if y_test < func(x_test): break
+                
+        x_accept[i] = x_test
+        
+    # Calculate efficiency
+    eff = N_points / N_try  
+
+    # Error on efficiency (binomial, see note above)
+    eff_err = np.sqrt(eff * (1-eff) / N_try) 
+            
+    # Estimate integral, as the efficiency times the area of the bounding box
+    integral = eff * np.diff(xbound)[0] * np.diff(ybound)[0]
+    
+    # Integral error
+    integral_err = eff_err * np.diff(xbound)[0] * np.diff(ybound)[0]
+    
+    return x_accept, [eff, eff_err], [integral, integral_err]
+
 
 def get_corr(x_data, y_data):
     """
@@ -814,27 +1063,32 @@ def error_rates(species_A, species_B, cut, N_bins = 50, plot=True, alp_coord=(0.
     return alp, bet
 
 
-def gauss_hist(data, label=None):
+def gauss_hist(data, label=None, N_bins=None, ax=None):
     
     """
+    Fits a Gaussian distribution to a histogram of the data
+
     INPUT:
     data = 1d array of all data points
     label = label to put on xaxis
+    N_bins = number of bins, if not stated it will use Sturges formula
+    ax = optional ax to plot on, if not stated will create a new figure
     
     OUTPUT:
     mean = (mean of data, error on mean from fit)
     sigma = (std of data, error on std from fit)
-    pval = probability of chi2 fit
+    Prob_gauss = probability of chi2 fit
     """
     
-    # Create a figure
-    fig, ax = plt.subplots(figsize=(12,6))
+    # Create a figure if needed
+    if ax is None: fig, ax = plt.subplots(figsize=(12,6))
 
     # Extract values from histogram and outline data
-    counts, bin_edges, _ = ax.hist(data, bins=Sturges_bins(data), alpha=0.3, label='Histogram of data')
+    if N_bins is None: N_bins = Sturges_bins(data)
+    counts, bin_edges, _ = ax.hist(data, bins=N_bins, alpha=0.3, label='Histogram of data')
     bin_centers = (bin_edges[1:] + bin_edges[:-1])/2
-    binwidth = bin_edges[1]-bin_edges[0]
-    
+    binwidth = bin_edges[1] - bin_edges[0]
+
     # Poisson errors on the count in each bin
     s_counts = np.sqrt(counts)
     
@@ -850,7 +1104,7 @@ def gauss_hist(data, label=None):
     
     # Define Gauss function
     def func_gaussian(x, N, mu, sigma) :
-        return N * stats.norm.pdf(x, mu, sigma)
+        return N * binwidth * stats.norm.pdf(x, mu, sigma)
 
     # Perform fit by minimizing chi2
     chi2_gaussian = Chi2Regression(func_gaussian, x, y, sy)
@@ -862,37 +1116,220 @@ def gauss_hist(data, label=None):
     Ndof_gauss = len(x) - minuit_gaussian.narg
     Prob_gauss = stats.chi2.sf(chi2_gauss, Ndof_gauss)
     
+    #Extract values from fit
+    mean = [minuit_gaussian.values['mu'], minuit_gaussian.errors['mu']]
+    sigma = [minuit_gaussian.values['sigma'], minuit_gaussian.errors['sigma']]
+
     # Plot Gaussian fit
     xaxis = np.linspace(min(data), max(data), 100)
     y_gauss = func_gaussian(xaxis, *minuit_gaussian.args)
     ax.plot(xaxis, y_gauss, linewidth=2, color='r')
-
-    #Extract values from fit
-    mean = [minuit_gaussian.values['mu'], minuit_gaussian.errors['mu']]
-    sigma = [minuit_gaussian.values['sigma'], minuit_gaussian.errors['sigma']]
     
-    d1 = {'N': [minuit_gaussian.values['N'], minuit_gaussian.errors['N']],
+    d = {'N': [minuit_gaussian.values['N'], minuit_gaussian.errors['N']],
           'mu': mean,
           'sigma': sigma,
+          'Ndof': Ndof_gauss,
           'Chi2': chi2_gauss,
           'Prob': Prob_gauss}
 
-    text1 = nice_string_output(d1, extra_spacing=3, decimals=3)
-    add_text_to_ax(0.02, 0.9, text1, ax, fontsize=12, color='red')
+    text = nice_string_output(d, extra_spacing=3, decimals=3)
+    add_text_to_ax(0.02, 0.9, text, ax, fontsize=12, color='red')
     ax.text(0.02, 0.97, 'Gaussian Fit', weight='heavy', fontsize=15, transform=ax.transAxes, 
             verticalalignment='top', color='r')
 
     ax.legend()
     ax.set_xlabel(label, fontsize=14)
-    plt.show()
     
     return mean, sigma, Prob_gauss
+
+
+def studentT_hist(data, label=None, N_bins=None, ax=None):
     
+    """
+    Fits a student t distribution to a histogram of the data.
+
+    INPUT:
+    data = 1d array of all data points
+    label = label to put on xaxis
+    N_bins = number of bins, if not stated it will use Sturges formula
+    ax = optional ax to plot on, if not stated will create a new figure
+
+    OUTPUT:
+    loc = (mean of the data, error on mean from fit)
+    scale = (corresponding to the standard deviation of the data, error on scale from fit)
+    Prob_t = probability of chi2 fit
+    """
+    
+    # Create a figure
+    if ax is None: fig, ax = plt.subplots(figsize=(12,6))
+
+    # Extract values from histogram and outline data
+    if not N_bins: N_bins = Sturges_bins(data)
+    counts, bin_edges, _ = ax.hist(data, bins=N_bins, alpha=0.3, label='Histogram of data')
+    bin_centers = (bin_edges[1:] + bin_edges[:-1])/2
+    binwidth = bin_edges[1] - bin_edges[0]
+    
+    # Poisson errors on the count in each bin
+    s_counts = np.sqrt(counts)
+    
+    # We remove any bins, which don't have any counts in them:
+    x = bin_centers[counts>0]
+    y = counts[counts>0]
+    sy = s_counts[counts>0]
+
+    # Plot data with error
+    ax.errorbar(x, y, yerr=sy, fmt='.k',  ecolor='k', elinewidth=1, capsize=1, capthick=1, label='Counts with Poisson errors')
+    
+    # Perform Students T fit ------------------------------------------------------------------------
+    
+    # Defining the student t distribution (normalised)
+    def func_t(x, N, df, loc, scale) :
+        return N * binwidth * stats.t.pdf(x, df, loc, scale)
+
+    # Perform fit by minimizing chi2
+    chi2_t = Chi2Regression(func_t, x, y, sy)
+    minuit_t = Minuit(chi2_t, pedantic=False, N=len(data), df=len(data)-4, loc=np.mean(data), scale=np.std(data))  
+    minuit_t.migrad();     
+    
+    # Extract chi2 values
+    chi2_t = minuit_t.fval
+    Ndof_t = len(x) - minuit_t.narg
+    Prob_t = stats.chi2.sf(chi2_t, Ndof_t)
+    
+    #Extract values from fit
+    loc = [minuit_t.values['loc'], minuit_t.errors['loc']]
+    scale = [minuit_t.values['scale'], minuit_t.errors['scale']]
+    
+    # Plot student t fit
+    xaxis = np.linspace(min(data), max(data), 100)
+    y_t = func_t(xaxis, *minuit_t.args)
+    ax.plot(xaxis, y_t, linewidth=2, color='r')
+
+    d = {'N': [minuit_t.values['N'], minuit_t.errors['N']],
+         'df': [minuit_t.values['df'], minuit_t.errors['df']],
+         'loc': loc,
+         'scale': scale,
+         'Ndof': Ndof_t,
+         'Chi2': chi2_t,
+         'Prob': Prob_t}
+
+    text = nice_string_output(d, extra_spacing=3, decimals=3)
+    add_text_to_ax(0.02, 0.9, text, ax, fontsize=12, color='r')
+    ax.text(0.02, 0.97, 'Student T Fit', weight='heavy', fontsize=15,
+            transform=ax.transAxes, verticalalignment='top', color='r')
+
+    ax.legend()
+    ax.set_xlabel(label, fontsize=14)
+    
+    return loc, scale, Prob_t
 
 
 
 
 
+def double_gauss_hist(data, label=None, N_bins=None, ax=None, sub_pdfs = True, p0=()):
+
+    """
+    Fits a double Gaussian distribution to a histogram of the data.
+
+    INPUT:
+    data = 1d array of all data points
+    label = label to put on xaxis
+    N_bins = number of bins, if not stated it will use Sturges formula
+    ax = optional ax to plot on, if not stated will create a new figure
+    sub_pdfs = option to mark the subset of gaussians
+    p0 = initial guesses on the form (frac, mu1, sigma1, mu2, sigma2)
+    
+    OUTPUT:
+    mean1 = (mean of first Gaussian fit, error on mean from fit)
+    sigma1 = (std of first Gaussian fit, error on std from fit)
+    mean2 = (mean of second Gaussian fit, error on mean from fit)
+    sigma2 = (std of second Gaussian fit, error on std from fit)
+    Prob_double = probability of chi2 fit
+    """
+
+    # Create a figure
+    if ax is None: fig, ax = plt.subplots(figsize=(12,6))
+
+    # Extract values from histogram and outline data
+    if not N_bins: N_bins = Sturges_bins(data)
+    counts, bin_edges, _ = ax.hist(data, bins=N_bins, alpha=0.3, label='Histogram of data')
+    bin_centers = (bin_edges[1:] + bin_edges[:-1])/2
+    binwidth = bin_edges[1] - bin_edges[0]
+    
+    # Poisson errors on the count in each bin
+    s_counts = np.sqrt(counts)
+    
+    # We remove any bins, which don't have any counts in them:
+    x = bin_centers[counts>0]
+    y = counts[counts>0]
+    sy = s_counts[counts>0]
+
+    # Plot data with error
+    ax.errorbar(x, y, yerr=sy, fmt='.k',  ecolor='k', elinewidth=1, capsize=1, capthick=1, label='Counts with Poisson errors')
+    
+    # Perform double Gaussian fit ------------------------------------------------------------------------
+
+    # Define function for double gauss (normalised)
+    def double_gauss(x, N, frac, mu1, sigma1, mu2, sigma2):
+        # Notice we introduce a common parameter frac that determines the proportion of the two functions
+        return N * binwidth * ( frac * stats.norm.pdf(x, mu1, sigma1) + (1-frac)*stats.norm.pdf(x, mu2, sigma2) )
 
 
+    # Perform fit by minimizing chi2
+    chi2_double = Chi2Regression(double_gauss, x, y, sy)
+
+    if p0 is not None:
+        minuit_double = Minuit(chi2_double, pedantic=False, N=len(data), frac = p0[0], mu1=p0[1], sigma1=p0[2], mu2 = p0[3], sigma2=p0[4] ) 
+    else:
+        minuit_double = Minuit(chi2_double, pedantic=False, N=len(data), frac = 0.5, mu1=np.mean(data), mu2 = np.mean(data),
+                                sigma1=np.std(data, ddof=1), sigma2=np.std(data, ddof=1))  
+    minuit_double.migrad(); 
+    
+    # Extract chi2 values
+    chi2_double = minuit_double.fval
+    Ndof_double = len(x) - minuit_double.narg
+    Prob_double = stats.chi2.sf(chi2_double, Ndof_double)
+
+    # Extract values from fit
+    mean1 = [minuit_double.values['mu1'], minuit_double.errors['mu1']]
+    sigma1 = [minuit_double.values['sigma1'], minuit_double.errors['sigma1']]
+    mean2 = [minuit_double.values['mu2'], minuit_double.errors['mu2']]
+    sigma2 = [minuit_double.values['sigma2'], minuit_double.errors['sigma2']]
+    frac = [minuit_double.values['frac'], minuit_double.errors['frac']]
+
+    # Plot Double Gaussian fit
+    xaxis = np.linspace(min(data), max(data), 100)
+    y_double = double_gauss(xaxis, *minuit_double.args)
+    ax.plot(xaxis, y_double, linewidth=2, color='r')
+
+    # Plot the sub distributions
+    if sub_pdfs:
+        
+        # Define a regular gaussian
+        def gauss(x, N, frac, mu, sigma):
+            return N * binwidth * frac * stats.norm.pdf(x, mu, sigma)
+
+        ax.plot(xaxis, gauss(xaxis, len(data), frac[0], mean1[0], sigma1[0]), linestyle='dashed', color='r', label='Gauss 1' )
+        ax.plot(xaxis, gauss(xaxis, len(data), 1-frac[0], mean2[0], sigma2[0]), linestyle='dashed', color='r', label='Gauss 2' )
+
+    d = {'N': [minuit_double.values['N'], minuit_double.errors['N']],
+         'frac': frac,
+         'mu1': mean1,
+         'sigma1': sigma1,
+         'mu2': mean2,
+         'sigma2': sigma2,
+         'Ndof': Ndof_double,
+         'Chi2': chi2_double,
+         'Prob': Prob_double}
+
+    text = nice_string_output(d, extra_spacing=3, decimals=3)
+    add_text_to_ax(0.02, 0.9, text, ax, fontsize=12, color='red')
+    ax.text(0.02, 0.97, 'Double Gaussian Fit', weight='heavy', fontsize=15, transform=ax.transAxes, 
+                    verticalalignment='top', color='r')
+
+    ax.legend()
+    ax.set_xlabel(label, fontsize=14)
+
+    return mean1, sigma1, mean2, sigma2, Prob_double
 
