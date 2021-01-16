@@ -5,6 +5,14 @@ Import of the file ExternalFunctions is necessary.
 
 Contains the functions below:
 
+
+lprint(*args,**kwargs) 
+--------------------------------------------------------------------------------------------------- 
+ 
+ Function provided by course to display symy results in latex 
+
+
+
 weighted_avg(val, err, plot=False, title=None)
 ---------------------------------------------------------------------------------------------------
 For problems asking us for the weighted average of a few values with respective errors, we need to 
@@ -15,7 +23,8 @@ For problems asking us for the weighted average of a few values with respective 
 
 
 val_err_contr(expr, **kwargs)
----------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+
 A function that takes in a paramater dependent on a set of variables and calculates the combined error analytically. For this to work we assume all of our errors are gaussian which is likely because of the central limit theorem. It also returns the contributions for each variable (the terms under the square root)
 
 Uses the helper function: value_error_contribution_func_gen
