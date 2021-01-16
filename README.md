@@ -9,7 +9,7 @@ Contains the functions below:
 lprint(*args,**kwargs) 
 --------------------------------------------------------------------------------------------------- 
  
- Function provided by course to display symy results in latex 
+Function provided by course to display symy results in latex 
 
 
 
@@ -33,6 +33,11 @@ Uses the helper function: value_error_contribution_func_gen
 binom_prob(r, n , p, plot=True)
 ---------------------------------------------------------------------------------------------------
 This is a funcion that considers a problem following the binomial distribution, i.e. something that given a number of identical trials $n$ with two possible outcomes. One outcome is considered a succes with. probability $p$. The functions finds the probability of $r$ successes from $n$ trials given the probability $p$ of succes.
+
+
+poisson_prob(r, lamb, plot=True)
+---------------------------------------------------------------------------------------------------
+This is a funcion that considers a problem following the poisson distribution, given the number of desired succeses r and the poisson parameter lambda, the function finds the probability of r successes occuring.
 
 
 binom_trials(r, p, prob_r, test_range, plot=True)
@@ -88,6 +93,17 @@ KS_plotter(data, fit_function, args=(), zoom=True)
 Calculates the Kolmogorov-Smirnov test and the associated p-value for a data set against a scipy stats function that has been fitted. An alternative to finding a goodness of fit that does not consider the number of bins.
 
 
+KS_2samp_plotter(data1, data2, zoom=True, label1 = 'Cumulative Data 1', label2 = 'Cumulative Data 2')
+---------------------------------------------------------------------------------------------------
+Calculates the Kolmogorov-Smirnov test and the associated p-value for whether two data samples are drawn from the same distribution. An alternative to finding a goodness of fit that does not consider the number of bins.
+
+
+chi2_2samp(data1, data2, N_bins=50, label1='Data 1', label2='Data 2', xlabel=None, txtcoord=(0.02, 0.95)
+---------------------------------------------------------------------------------------------------
+Performs the chi2 test on two data samples, comparing the two without fitting, the number of degrees of freedom is 
+therefor the number of bins. Chi square is found by: np.sum( (counts1 - counts2)^2  / ( error1^2 + error2^2 ) )
+
+
 find_C(fx_expr, xmin, xmax, all_sol = False)
 ---------------------------------------------------------------------------------------------------
 Finds the normalising constant C for a function that we want to create monte carlo simulated data from. C can be either in the function, or one of the limits where the function is defined, for example x in [0,C].
@@ -96,3 +112,36 @@ Finds the normalising constant C for a function that we want to create monte car
 find_invF(fx_expr_no_C, C_val=None, xmin=-oo, all_sol = False )
 ---------------------------------------------------------------------------------------------------
 Finds the inverse function to a function f(x) we want to create our simulated monte carlo data from. This is for the transformation method.
+
+accept_reject(func, N_points, xbound, ybound)
+---------------------------------------------------------------------------------------------------
+Performs the accept reject method of generating random numbers according to a distribution. The errors of the efficiency are explained in the link: http://www.pp.rhul.ac.uk/~cowan/atlas/efferr.ps
+
+get_corr(x_data, y_data)
+---------------------------------------------------------------------------------------------------
+Calculates the linear correlation of two variables, given a data set with values for each variable.
+
+error_rates(species_A, species_B, cut, N_bins = 50, plot=True, alp_coord=(0.1, 0.52), bet_coord=(0.1, 0.52), labelA = 'Species A', labelB='Species B')
+---------------------------------------------------------------------------------------------------
+Calculates the type I and II errors given a data set A and data set B and a cut to seperate the two.
+
+
+gauss_hist(data, label=None, N_bins=None, ax=None)
+---------------------------------------------------------------------------------------------------
+Fits (chi2) a Gaussian to a histogram of the data and plots fit.
+
+
+studentT_hist(data, label=None, N_bins=None, ax=None)
+---------------------------------------------------------------------------------------------------
+Fits (chi2) a Student T to a histogram of the data and plots fit.
+
+
+double_gauss_hist(data, label=None, N_bins=None, ax=None, sub_pdfs = True, p0=())
+---------------------------------------------------------------------------------------------------
+Fits (chi2) a double gaussian to a histogram of the data and plots fit, along with the two sub gaussians.
+
+
+
+
+
+
