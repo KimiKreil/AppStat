@@ -1,6 +1,9 @@
 # AppStat
-General functions to use in the course Applied Statistics. 
-Import of the file ExternalFunctions is necessary.
+General functions to use in the course Applied Statistics.
+Developed during the course by: Kimi Kreilgaard, Jonathan Baltazar Steensgaard.
+
+The ExternalFunctions module is the module provided by the course, with small adjustments and inclutions of functions found in the exercises. See the README_ext for more information.
+
 
 
 Contains the functions below:
