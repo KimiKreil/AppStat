@@ -3,7 +3,7 @@
 """
 Created on Wed Dec 30 22:22:28 2020
 
-@author: Kimi Kreilgaard
+@author: Kimi Kreilgaard, Jonathan Baltazar Steensgaard and Amalie Beate Albrechtsen
 
 """
 
